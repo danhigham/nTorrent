@@ -1,0 +1,25 @@
+extends layout
+
+block content
+
+  h3 Open Torrents
+
+  - each dl in downloads
+    div(class='row torrent', id=dl)
+      div(class='span8')
+        div(class='progress progress-striped active')
+          div(class='bar', style='width:0%;')
+            span(class='name') #{dl}
+            span(class='progress')
+      div(class='span4')
+        a(href='/torrents/erase?hash=#{dl}') Delete
+
+  hr
+
+  h3 Add a new torrent
+  form(action='/torrents/add', method='post')
+    div(class='row')
+      div(class='span7')
+        input(type='text', name='url')
+      div(class='span2')
+        input(type='submit', class='btn btn-success', value='Add')

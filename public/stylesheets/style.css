@@ -1,0 +1,25 @@
+body {
+  margin : 20px 0 0 0;
+}
+
+.name { width :600px; display : inline-block;}
+
+.torrent {
+  padding : 10px 0;
+}
+
+.span7 input[type=text] {
+  width : 500px;
+}
+
+.progress, .progress .bar {
+  height : 25px;
+}
+
+.progress .bar {
+  padding : 3px 5px;
+}
+
+.progress .bar span {
+  color : #333;
+}
