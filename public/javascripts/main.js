@@ -10,12 +10,16 @@ $(document).ready(function (){
   }); 
 
   function updateTorrent(o){
+
     hash = o.id;
 
     $.get('/torrents/info?hash=' + hash, function(data){
-      console.log(data);
 
-      var bar = $(o).find('.bar');
+      var torrent = $('#' + data['hash']);
+
+      console.log(hash);
+
+      var bar = $(torrent).find('.bar');
       var nameSpan = $(bar).find('.name');
       var progressSpan = $(bar).find('.progress');
 

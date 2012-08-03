@@ -11,7 +11,7 @@ var express = require('express')
 
 var app = express();
 
-var client = xmlrpc.createClient({ host: '192.168.1.7', port: 80, path: '/RPC2'});
+
 
 app.configure(function(){
   app.set('port', process.env.VCAP_APP_PORT || 3000);
@@ -32,6 +32,7 @@ app.configure('development', function(){
 app.get('/', routes.index);
 
 app.get('/torrents', function(req, res) {
+  var client = getClient();
   client.methodCall('download_list', [], function (error, value) {
     res.render('torrents', { downloads: value });
   });
@@ -39,6 +40,9 @@ app.get('/torrents', function(req, res) {
 
 app.get('/torrents/info', function(req, res) {
   var hash = req.query['hash'];
+  var client = getClient();
+
+  var calledBack = false;
 
   batch_commands(client, hash, ['d.base_filename', 'd.completed_bytes', 'd.size_bytes', 'd.up.rate', 'd.down.rate'], function (info) {
     res.json(info);
@@ -48,7 +52,7 @@ app.get('/torrents/info', function(req, res) {
 
 app.get('/torrents/erase', function(req, res) {
   var hash = req.query['hash'];
-
+  var client = getClient();
   client.methodCall('d.erase', [hash], function (error, value) {    
     res.redirect('/torrents');
   });
@@ -57,27 +61,35 @@ app.get('/torrents/erase', function(req, res) {
 
 app.post('/torrents/add', function(req, res) {
   var url = req.body.url;
-
+  var client = getClient();
   client.methodCall('load_start', [url], function (error, value) {    
     res.redirect('/torrents');
   });
 });
 
+function getClient() {
+  return(xmlrpc.createClient({ host: '192.168.1.7', port: 80, path: '/RPC2'}));
+}
 
 function batch_commands(client, hash, commands, callback) {
-  out = {}
-  for(index in commands) {
+  var mcParams = []
+  var out = {}
+
+  for (index in commands) {
     var cmd = commands[index];
-    send_command(client, hash, cmd, function(cmd, value) {
-      out[cmd] = value;
-      var ready = true;
-      for (index2 in commands) {
-        var cmd = commands[index2];
-        if (out[cmd] == undefined) ready = false;
-      }
-      if (ready) { callback(out); }
-    });
+    mcParams.push({'methodName': cmd, 'params': [hash]});
   }
+
+  client.methodCall('system.multicall', [mcParams], function (error, value) {
+    for (index in commands) {
+      var cmd = commands[index];
+      out[cmd] = value[index][0];
+    }
+    out['hash'] = hash;
+    callback(out);
+  });
+
+  return out;
 }
 
 function send_command(client, hash, command, callback) {
