@@ -19,6 +19,19 @@ $(document).ready(function (){
 
       console.log(hash);
 
+      var progress = $(torrent).find('.progress');
+
+      if (data['d.is_active'] == "1") {
+        $(progress).addClass('progress-success');
+        $(progress).addClass('active');
+        $(progress).removeClass('progress-danger');
+
+      } else {
+        $(progress).addClass('progress-danger');
+        $(progress).removeClass('active');
+        $(progress).removeClass('progress-success');
+      }
+
       var bar = $(torrent).find('.bar');
       var nameSpan = $(bar).find('.name');
       var progressSpan = $(bar).find('.progress');
