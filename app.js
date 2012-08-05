@@ -6,12 +6,36 @@
 var express = require('express')
   , routes = require('./routes')
   , xmlrpc = require('xmlrpc')
+  , fibers = require('fibers')
   , util = require('util')
   , http = require('http');
 
 var app = express();
 
+var standbyCheckInterval = 5; //Standby check interval in minutes
+var standbyHourOn = 0;
+var standbyHourOff = 6;
 
+var standbyFiber = Fiber(function(){
+    while(true) {
+      
+      // check what time it is
+      var now = new Date();
+      var hour = now.getHours();
+
+      console.log("The current hour is " + hour);
+
+      if ((hour >= standbyHourOn) && (hour < standbyHourOff)) { 
+        console.log("Resuming any inactive torrents");
+        changeAllTorrentState(true);
+      } else {
+        console.log("Pausing any active torrents");
+        changeAllTorrentState(false);
+      }
+
+      sleep(60000 * standbyCheckInterval);
+    }  
+})
 
 app.configure(function(){
   app.set('port', process.env.VCAP_APP_PORT || 3000);
@@ -44,7 +68,7 @@ app.get('/torrents/info', function(req, res) {
 
   var calledBack = false;
 
-  batch_commands(client, hash, ['d.base_filename', 'd.completed_bytes', 'd.size_bytes', 'd.up.rate', 'd.down.rate'], function (info) {
+  batch_commands(client, hash, ['d.base_filename', 'd.completed_bytes', 'd.size_bytes', 'd.up.rate', 'd.down.rate', 'd.is_active'], function (info) {
     res.json(info);
   });
 
@@ -66,6 +90,16 @@ app.post('/torrents/add', function(req, res) {
     res.redirect('/torrents');
   });
 });
+
+function sleep(ms) {
+  var fiber = Fiber.current;
+
+  setTimeout(function() {
+      fiber.run();
+  }, ms);
+
+  Fiber.yield();
+}
 
 function getClient() {
   return(xmlrpc.createClient({ host: '192.168.1.7', port: 80, path: '/RPC2'}));
@@ -98,6 +132,40 @@ function send_command(client, hash, command, callback) {
   });
 }
 
+function changeAllTorrentState(start) {
+
+  var client = getClient();
+
+  client.methodCall('download_list', [], function (error, torrents) {
+    for(index in torrents) 
+      if (start == false) {
+        pauseTorrent(torrents[index]); 
+      } else { 
+        resumeTorrent(torrents[index]);
+      }
+  });
+}
+
+function pauseTorrent(hash) {
+  var client = getClient();
+
+  client.methodCall('d.is_active', [hash], function (error, value) {
+    if (value == 1) client.methodCall('d.pause', [hash], function (error, value){} );
+  });
+}
+
+function resumeTorrent(hash) {
+  var client = getClient();
+
+  client.methodCall('d.is_active', [hash], function (error, value) {
+    if (value == 0) client.methodCall('d.resume', [hash], function (error, value){} );
+  });
+}
+
+
+standbyFiber.run();
+
 http.createServer(app).listen(app.get('port'), function(){
   console.log("Express server listening on port " + app.get('port'));
 });
+
